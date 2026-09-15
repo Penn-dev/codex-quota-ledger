@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-source:
+    name: Windows source verification
+    runs-on: windows-2025
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Install the pinned Rust toolchain
+        shell: pwsh
+        run: |
+          rustup toolchain install 1.98.0 --profile minimal --component rustfmt
+          rustup show active-toolchain
+          rustc --version --verbose
+
+      - name: Audit repository contents
+        shell: pwsh
+        run: ./scripts/verify-repository.ps1
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run all tests
+        run: cargo test --all --locked
+
+      - name: Build release profile
+        run: cargo build --release --locked
+
+      - name: Exercise the installer without system changes
+        shell: pwsh
+        run: ./tests/install_contract.ps1
+
+      - name: Reject duplicate dependency versions
+        shell: pwsh
+        run: |
+          $duplicates = cargo tree --duplicates
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($duplicates) {
+            $duplicates
+            throw 'Duplicate dependency versions found.'
+          }
