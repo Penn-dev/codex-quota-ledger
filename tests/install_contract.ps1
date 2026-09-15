@@ -27,7 +27,9 @@ try {
     if (Test-Path -LiteralPath (Join-Path $installRoot 'recorder.pid')) {
         throw 'Isolated installer unexpectedly started the recorder.'
     }
-    if ((& $installedBinary --version) -ne 'codex-quota-ledger 0.1.0') {
+    $cargoText = Get-Content -LiteralPath (Join-Path $repository 'Cargo.toml') -Raw
+    $expectedVersion = [regex]::Match($cargoText, '(?m)^version\s*=\s*"(?<version>\d+\.\d+\.\d+)"').Groups['version'].Value
+    if ((& $installedBinary --version) -ne "codex-quota-ledger $expectedVersion") {
         throw 'Installed binary version is incorrect.'
     }
     Write-Output 'Isolated installer contract passed.'
